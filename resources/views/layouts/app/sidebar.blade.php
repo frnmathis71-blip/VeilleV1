@@ -11,24 +11,25 @@
             </flux:sidebar.header>
 
             <flux:sidebar.nav>
-                <flux:sidebar.group :heading="__('Platform')" class="grid">
+                <flux:sidebar.group :heading="__('Veille technologique')" class="grid">
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item :href="route('articles.interesting')" :current="request()->routeIs('articles.interesting')" wire:navigate>Articles pertinents</flux:sidebar.item>
+                    <flux:sidebar.item :href="route('articles.irrelevant')" :current="request()->routeIs('articles.irrelevant')" wire:navigate>Articles impertinents</flux:sidebar.item>
+                    <flux:sidebar.item :href="route('articles.library')" :current="request()->routeIs('articles.library')" wire:navigate>Ma bibliothèque</flux:sidebar.item>
+                    <flux:sidebar.item :href="route('articles.all')" :current="request()->routeIs('articles.all')" wire:navigate>Tous les articles</flux:sidebar.item>
+                    @can('manage-watch')<flux:sidebar.item :href="route('sources')" :current="request()->routeIs('sources')" wire:navigate>Sources RSS</flux:sidebar.item>@endcan
+                    <flux:sidebar.item :href="route('history')" :current="request()->routeIs('history')" wire:navigate>Historique</flux:sidebar.item>
+                    <flux:sidebar.item :href="route('statistics')" :current="request()->routeIs('statistics')" wire:navigate>Statistiques</flux:sidebar.item>
+                    @can('manage-watch')<flux:sidebar.item :href="route('watch.settings')" :current="request()->routeIs('watch.settings')" wire:navigate>Paramètres de veille</flux:sidebar.item>@endcan
+                    <flux:sidebar.item icon="cog" :href="route('profile.edit')" :current="request()->routeIs('*.edit')" wire:navigate>Mon compte</flux:sidebar.item>
                 </flux:sidebar.group>
             </flux:sidebar.nav>
 
             <flux:spacer />
 
-            <flux:sidebar.nav>
-                <flux:sidebar.item icon="folder-git-2" href="https://github.com/laravel/livewire-starter-kit" target="_blank">
-                    {{ __('Repository') }}
-                </flux:sidebar.item>
 
-                <flux:sidebar.item icon="book-open-text" href="https://laravel.com/docs/starter-kits#livewire" target="_blank">
-                    {{ __('Documentation') }}
-                </flux:sidebar.item>
-            </flux:sidebar.nav>
 
             <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
         </flux:sidebar>

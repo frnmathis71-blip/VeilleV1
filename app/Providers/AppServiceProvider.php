@@ -2,9 +2,15 @@
 
 namespace App\Providers;
 
+use App\Contracts\ArticleAnalyzer;
+use App\Models\User;
+use App\Services\Analysis\GeminiAnalyzer;
+use App\Services\Analysis\LocalAnalyzer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -15,7 +21,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(ArticleAnalyzer::class, fn ($app): ArticleAnalyzer => config('watch.analyzer') === 'local'
+            ? $app->make(LocalAnalyzer::class)
+            : $app->make(GeminiAnalyzer::class));
     }
 
     /**
@@ -24,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        Gate::define('manage-watch', fn (User $user): bool => $user->is_admin);
     }
 
     /**
@@ -32,6 +41,12 @@ class AppServiceProvider extends ServiceProvider
     protected function configureDefaults(): void
     {
         Date::use(CarbonImmutable::class);
+
+        // Behind the HTTPS proxy of shared hosting the request may look like plain HTTP:
+        // generate https:// links and assets whenever the public URL is HTTPS.
+        if (str_starts_with((string) config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
 
         DB::prohibitDestructiveCommands(
             app()->isProduction(),

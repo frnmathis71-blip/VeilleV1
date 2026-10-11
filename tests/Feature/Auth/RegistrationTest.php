@@ -1,27 +1,13 @@
 <?php
 
-use Laravel\Fortify\Features;
+use App\Models\User;
 
-beforeEach(function () {
-    $this->skipUnlessFortifyHas(Features::registration());
+test('public registration is unavailable', function () {
+    $this->get('/register')->assertNotFound();
+    $this->post('/register', ['name' => 'Intrus', 'email' => 'intrus@example.com', 'password' => 'Password123!'])->assertNotFound();
+    expect(User::count())->toBe(0);
 });
 
-test('registration screen can be rendered', function () {
-    $response = $this->get(route('register'));
-
-    $response->assertOk();
-});
-
-test('new users can register', function () {
-    $response = $this->post(route('register.store'), [
-        'name' => 'John Doe',
-        'email' => 'test@example.com',
-        'password' => 'password',
-        'password_confirmation' => 'password',
-    ]);
-
-    $response->assertSessionHasNoErrors()
-        ->assertRedirect(route('dashboard', absolute: false));
-
-    $this->assertAuthenticated();
+test('login screen does not offer registration', function () {
+    $this->get(route('login'))->assertOk()->assertDontSee('href="http://localhost/register"', false)->assertSee('Espace privé');
 });
