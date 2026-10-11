@@ -79,6 +79,6 @@
             </flux:toast.group>
         @endpersist
 
-        @fluxScripts
+        <x-flux-scripts />
     </body>
 </html>

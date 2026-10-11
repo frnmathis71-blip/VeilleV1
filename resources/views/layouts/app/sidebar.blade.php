@@ -12,18 +12,16 @@
 
             <flux:sidebar.nav>
                 <flux:sidebar.group :heading="__('Veille technologique')" class="grid">
-                    <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                        {{ __('Dashboard') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item :href="route('articles.interesting')" :current="request()->routeIs('articles.interesting')" wire:navigate>Articles pertinents</flux:sidebar.item>
-                    <flux:sidebar.item :href="route('articles.irrelevant')" :current="request()->routeIs('articles.irrelevant')" wire:navigate>Articles impertinents</flux:sidebar.item>
-                    <flux:sidebar.item :href="route('articles.library')" :current="request()->routeIs('articles.library')" wire:navigate>Ma bibliothèque</flux:sidebar.item>
-                    <flux:sidebar.item :href="route('articles.all')" :current="request()->routeIs('articles.all')" wire:navigate>Tous les articles</flux:sidebar.item>
-                    @can('manage-watch')<flux:sidebar.item :href="route('sources')" :current="request()->routeIs('sources')" wire:navigate>Sources RSS</flux:sidebar.item>@endcan
-                    <flux:sidebar.item :href="route('history')" :current="request()->routeIs('history')" wire:navigate>Historique</flux:sidebar.item>
-                    <flux:sidebar.item :href="route('statistics')" :current="request()->routeIs('statistics')" wire:navigate>Statistiques</flux:sidebar.item>
-                    @can('manage-watch')<flux:sidebar.item :href="route('watch.settings')" :current="request()->routeIs('watch.settings')" wire:navigate>Paramètres de veille</flux:sidebar.item>@endcan
-                    <flux:sidebar.item icon="cog" :href="route('profile.edit')" :current="request()->routeIs('*.edit')" wire:navigate>Mon compte</flux:sidebar.item>
+                    <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Tableau de bord</flux:sidebar.item>
+                    <flux:sidebar.item icon="check-badge" :href="route('articles.interesting')" :current="request()->routeIs('articles.interesting')" wire:navigate>Articles pertinents</flux:sidebar.item>
+                    <flux:sidebar.item icon="archive-box-x-mark" :href="route('articles.irrelevant')" :current="request()->routeIs('articles.irrelevant')" wire:navigate>Articles impertinents</flux:sidebar.item>
+                    <flux:sidebar.item icon="bookmark" :href="route('articles.library')" :current="request()->routeIs('articles.library')" wire:navigate>Ma bibliothèque</flux:sidebar.item>
+                    <flux:sidebar.item icon="newspaper" :href="route('articles.all')" :current="request()->routeIs('articles.all')" wire:navigate>Tous les articles</flux:sidebar.item>
+                    @can('manage-watch')<flux:sidebar.item icon="rss" :href="route('sources')" :current="request()->routeIs('sources')" wire:navigate>Sources RSS</flux:sidebar.item>@endcan
+                    <flux:sidebar.item icon="clock" :href="route('history')" :current="request()->routeIs('history')" wire:navigate>Historique</flux:sidebar.item>
+                    <flux:sidebar.item icon="chart-bar" :href="route('statistics')" :current="request()->routeIs('statistics')" wire:navigate>Statistiques</flux:sidebar.item>
+                    @can('manage-watch')<flux:sidebar.item icon="adjustments-horizontal" :href="route('watch.settings')" :current="request()->routeIs('watch.settings')" wire:navigate>Paramètres de veille</flux:sidebar.item>@endcan
+                    <flux:sidebar.item icon="cog-6-tooth" :href="route('profile.edit')" :current="request()->routeIs('*.edit')" wire:navigate>Mon compte</flux:sidebar.item>
                 </flux:sidebar.group>
             </flux:sidebar.nav>
 
@@ -36,7 +34,9 @@
 
         <!-- Mobile User Menu -->
         <flux:header class="lg:hidden">
-            <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
+            <flux:sidebar.toggle class="lg:hidden" icon="bars-3" inset="left" aria-label="Ouvrir le menu" />
+
+            <x-app-logo href="{{ route('dashboard') }}" wire:navigate class="ms-2" />
 
             <flux:spacer />
 
@@ -66,8 +66,8 @@
                     <flux:menu.separator />
 
                     <flux:menu.radio.group>
-                        <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
-                            {{ __('Settings') }}
+                        <flux:menu.item :href="route('profile.edit')" icon="cog-6-tooth" wire:navigate>
+                            Mon compte
                         </flux:menu.item>
                     </flux:menu.radio.group>
 
@@ -97,6 +97,6 @@
             </flux:toast.group>
         @endpersist
 
-        @fluxScripts
+        <x-flux-scripts />
     </body>
 </html>

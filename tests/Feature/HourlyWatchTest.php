@@ -4,6 +4,7 @@ use App\Enums\CollectionStatus;
 use App\Models\Article;
 use App\Models\CollectionRun;
 use App\Models\RssSource;
+use App\Models\User;
 use App\Services\Feeds\FeedFetcher;
 use App\Services\WatchSettings;
 use Illuminate\Support\Facades\Http;
@@ -50,4 +51,16 @@ test('planned collections can be turned off', function () {
     $this->artisan('veille:cron --minutes=1')->assertSuccessful();
 
     expect(CollectionRun::count())->toBe(0);
+});
+
+test('livewire and flux scripts are served as static files once published', function () {
+    $this->artisan('veille:assets')->assertSuccessful();
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('/vendor/flux/flux-lite.min.js', false)
+        ->assertSee('/vendor/livewire/livewire', false)
+        ->assertDontSee('/flux/flux.js', false)
+        ->assertDontSee('/flux/flux.min.js', false);
 });
