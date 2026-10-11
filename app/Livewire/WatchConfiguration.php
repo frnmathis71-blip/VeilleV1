@@ -34,7 +34,7 @@ class WatchConfiguration extends Component
         $rules = [
             'settings.threshold' => 'required|integer|min:0|max:100',
             'settings.batch_size' => 'required|integer|min:1|max:100',
-            'settings.interval_hours' => 'required|integer|min:1|max:168',
+            'settings.collect_hour' => 'required|integer|between:0,23',
             'settings.retention_days' => 'required|integer|min:30|max:3650',
             'settings.irrelevant_retention_days' => 'required|integer|min:1|max:3650',
             'settings.ai_profile' => 'nullable|string|max:3000',
@@ -58,7 +58,8 @@ class WatchConfiguration extends Component
             Category::query()->update(['is_monitored' => false]);
             Category::whereIn('id', $this->monitored)->update(['is_monitored' => true]);
         });
-        $this->message = 'Paramètres enregistrés. Ils s’appliquent aux prochaines analyses ; « php artisan veille:reanalyze --all » fait rejuger les articles existants.';
+        $this->settings['collect_hour'] = (int) $this->settings['collect_hour'];
+        $this->message = 'Paramètres enregistrés. Prochaine collecte automatique : '.$settings->nextPlannedLabel().'. Ils s’appliquent aux prochaines analyses ; « php artisan veille:reanalyze --all » fait rejuger les articles existants.';
     }
 
     public function render(): View
@@ -67,6 +68,7 @@ class WatchConfiguration extends Component
 
         return view('livewire.watch-configuration', [
             'categories' => Category::orderBy('name')->get(),
+            'nextCollection' => app(WatchSettings::class)->nextPlannedLabel(),
             'analyzer' => config('watch.analyzer') === 'local' ? 'local' : 'gemini',
             'model' => config('services.gemini.model'),
             'hasKey' => filled(config('services.gemini.key')),

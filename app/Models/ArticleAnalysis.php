@@ -14,7 +14,7 @@ use Illuminate\Support\Carbon;
  */
 class ArticleAnalysis extends Model
 {
-    protected $fillable = ['article_id', 'score', 'verdict', 'summary', 'summary_language', 'explanation', 'criteria_scores', 'method', 'rules_version', 'configuration_hash', 'analyzed_at'];
+    protected $fillable = ['article_id', 'score', 'verdict', 'title_fr', 'summary', 'summary_language', 'explanation', 'criteria_scores', 'method', 'rules_version', 'configuration_hash', 'analyzed_at'];
 
     /** @return array<string, string> */
     protected function casts(): array

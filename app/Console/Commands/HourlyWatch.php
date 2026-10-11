@@ -32,9 +32,7 @@ class HourlyWatch extends Command
         }
         try {
             $deadline = microtime(true) + 60 * max(1, min(55, (int) $this->option('minutes')));
-            $config = $settings->all();
-            $latest = CollectionRun::latest('id')->first();
-            if ($config['enabled'] && (! $latest || $latest->created_at->addHours((int) $config['interval_hours'])->isPast())) {
+            if ($settings->collectionDue()) {
                 $run = $collector->request(trigger: 'scheduled');
                 $this->info('Collecte #'.$run->id.' demandée.');
             }

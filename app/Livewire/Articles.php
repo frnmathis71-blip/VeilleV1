@@ -82,7 +82,8 @@ class Articles extends Component
         }
         if ($this->search !== '') {
             $term = mb_substr($this->search, 0, 200);
-            $query->where(fn ($q) => $q->where('title', 'like', '%'.$term.'%')->orWhere('description', 'like', '%'.$term.'%'));
+            $query->where(fn ($q) => $q->where('title', 'like', '%'.$term.'%')->orWhere('description', 'like', '%'.$term.'%')
+                ->orWhereHas('analysis', fn ($a) => $a->where('title_fr', 'like', '%'.$term.'%')->orWhere('summary', 'like', '%'.$term.'%')));
         }
         if (ctype_digit($this->category)) {
             $query->whereHas('categories', fn ($q) => $q->where('categories.id', $this->category));

@@ -3,7 +3,7 @@
 ## Principe
 
 1. **Collecte** : `veille:collect` lit les flux RSS actifs, dédoublonne et enregistre chaque nouvel article (inchangé).
-2. **Analyse** : chaque article est envoyé à Gemini (titre, source, date et extrait du flux uniquement). Gemini répond dans un JSON imposé : `relevant`, `score`, `reason`, `summary` (en français), `categories`, `criteria`.
+2. **Analyse** : chaque article est envoyé à Gemini (titre, source, date et extrait du flux uniquement). Gemini répond dans un JSON imposé : `title_fr` (titre traduit en français, affiché sur le site avec le titre original en dessous), `relevant`, `score`, `reason`, `summary` (en français), `categories`, `criteria`.
 3. **Classement** : le verdict est stocké dans `article_analyses.verdict` :
    - `relevant` → page **Articles pertinents** ;
    - `irrelevant` → page **Articles impertinents**, consultable pour repêcher un article, puis purgée après `irrelevant_retention_days` (30 jours par défaut).

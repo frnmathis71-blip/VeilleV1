@@ -35,8 +35,8 @@
     </a>
     <div class="flex flex-1 flex-col gap-3 p-4">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $article->source?->name }} · {{ $article->published_at?->timezone('Europe/Paris')->format('d/m/Y') ?? 'Date inconnue' }}</p>
-        <h2 class="line-clamp-3 font-semibold leading-snug" title="{{ $article->title }}">
-            <a href="{{ $url }}" wire:navigate class="hover:text-blue-600 dark:hover:text-blue-400">{{ $article->title }}</a>
+        <h2 class="line-clamp-3 font-semibold leading-snug" title="{{ $article->isTitleTranslated() ? 'Titre original : '.$article->title : $article->title }}">
+            <a href="{{ $url }}" wire:navigate class="hover:text-blue-600 dark:hover:text-blue-400">{{ $article->displayTitle() }}</a>
         </h2>
         <flux:button class="mt-auto w-full" size="sm" :href="$url" wire:navigate>Consulter</flux:button>
     </div>

@@ -21,7 +21,7 @@ table { width: 100%; border-collapse: collapse; } td { padding: 5px 0; border-bo
 <p class="muted">Un article peut appartenir à plusieurs catégories.</p>
 <h2>Méthode</h2><p>Cette sélection rassemble uniquement les articles validés par l’utilisateur. Les scores automatiques proviennent de règles locales explicites. Les extraits restent dans la langue du flux ; ils ne constituent pas une traduction ni une reproduction intégrale du contenu de l’éditeur.</p>
 @foreach($articles as $article)
-<section class="article"><p class="eyebrow">ARTICLE {{ $loop->iteration }} / {{ $articles->count() }}</p><h2>{{ $article->title }}</h2>
+<section class="article"><p class="eyebrow">ARTICLE {{ $loop->iteration }} / {{ $articles->count() }}</p><h2>{{ $article->displayTitle() }}</h2>@if($article->isTitleTranslated())<p class="muted">Titre original : {{ $article->title }}</p>@endif
 <div class="meta"><strong>{{ $article->source?->name }}</strong><br>Publication : {{ $article->published_at?->timezone('Europe/Paris')->format('d/m/Y') ?? 'Non précisée' }}<br>Score automatique : {{ $article->analysis?->score ?? 'Non analysé' }} / 100<br>Catégories : {{ $article->categories->pluck('name')->join(', ') ?: 'Non classé' }}</div>
 <h3>Résumé / extrait du flux</h3><p>{{ $article->analysis?->summary ?? $article->description }}</p>
 <h3>Justification du classement</h3><p>{{ $article->analysis?->explanation ?? 'Analyse non disponible.' }}</p>

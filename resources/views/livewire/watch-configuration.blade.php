@@ -5,11 +5,16 @@
         <section class="panel grid gap-4 sm:grid-cols-2"><h2 class="text-xl font-semibold sm:col-span-2">Collecte et sélection</h2>
 
             <flux:input wire:model="settings.batch_size" label="Articles maximum par lot" type="number" min="1" max="100" />
-            <flux:input wire:model="settings.interval_hours" label="Intervalle de collecte (heures)" type="number" min="1" max="168" />
+            <flux:select wire:model="settings.collect_hour" label="Heure de la collecte automatique" description="Chaque jour, heure de Paris.">
+                @foreach (range(0, 23) as $hour)<option value="{{ $hour }}">{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}:00</option>@endforeach
+            </flux:select>
             <flux:input wire:model="settings.retention_days" label="Conservation des articles non retenus (jours)" type="number" min="30" max="3650" />
             <flux:input wire:model="settings.irrelevant_retention_days" label="Conservation des articles impertinents (jours)" type="number" min="1" max="3650" />
             <flux:checkbox wire:model="settings.enabled" label="Activer les collectes planifiées" />
-            <p class="text-sm text-zinc-500 sm:col-span-2">Un cron doit exécuter la commande de collecte. Désactiver la planification n’annule pas une collecte déjà demandée.</p>
+            <p class="text-sm text-zinc-500 sm:col-span-2">
+                Prochaine collecte automatique : <strong>{{ $nextCollection }}</strong>.
+                Sur un hébergement OVH (tâche planifiée toutes les heures), elle démarre au passage du cron qui suit cette heure, puis tout est traité dans l’heure. Désactiver la planification n’annule pas une collecte déjà demandée.
+            </p>
         </section>
         <section class="panel space-y-4"><h2 class="text-xl font-semibold">Tri par l’IA (Gemini)</h2>
             @if($analyzer === 'gemini')

@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Models\CollectionRun;
 use App\Services\Collection\Collector;
 use App\Services\WatchSettings;
 use Illuminate\Console\Command;
@@ -15,10 +14,7 @@ class CollectWatch extends Command
 
     public function handle(Collector $collector, WatchSettings $settings): int
     {
-        $config = $settings->all();
-        $latest = CollectionRun::latest('id')->first();
-        $due = ! $latest || $latest->created_at->addHours((int) $config['interval_hours'])->isPast();
-        if (! $this->option('process-only') && (! $this->option('scheduled') || ($config['enabled'] && $due))) {
+        if (! $this->option('process-only') && (! $this->option('scheduled') || $settings->collectionDue())) {
             $collector->request(trigger: $this->option('scheduled') ? 'scheduled' : 'command');
         }
         $run = $collector->process();

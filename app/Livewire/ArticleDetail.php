@@ -71,6 +71,6 @@ class ArticleDetail extends Component
     {
         $article = Article::with(['source', 'analysis', 'categories'])->findOrFail($this->articleId);
 
-        return view('livewire.article-detail', ['article' => $article, 'review' => $this->review()])->layout('layouts.app', ['title' => $article->title]);
+        return view('livewire.article-detail', ['article' => $article, 'review' => $this->review()])->layout('layouts.app', ['title' => $article->displayTitle()]);
     }
 }

@@ -11,7 +11,7 @@ Procédure pour un hébergement web OVH (offres Perso, Pro, Performance) qui hé
 | SSH | À partir de l'offre **Pro** uniquement. En **Perso**, tout se fait par FTP et le cron fait le reste |
 | Cron | **Une fois par heure maximum**, 60 minutes d'exécution maximum, la commande est le chemin d'un fichier PHP |
 
-Le fichier `cron/veille.php` est prévu pour ces limites : appelé chaque heure, il applique les migrations, démarre la collecte quand elle est due (toutes les 24 h par défaut), puis enchaîne pendant 45 minutes au plus la lecture des flux, l'analyse Gemini et la recherche d'images. La purge est lancée une fois par jour.
+Le fichier `cron/veille.php` est prévu pour ces limites : appelé chaque heure, il applique les migrations, démarre la collecte quotidienne à l'heure choisie dans Paramètres de veille (6 h par défaut), puis enchaîne pendant 45 minutes au plus la lecture des flux, l'analyse Gemini et la recherche d'images. La purge est lancée une fois par jour.
 
 ## 1. Préparer les fichiers sur ton PC
 
@@ -144,7 +144,7 @@ Après une modification du `.env`, relance `config:cache`, sinon l'ancienne conf
 
 ## 8. Ajouter les sources RSS
 
-Connecte-toi, va dans **Sources RSS** et ajoute tes flux. La collecte suivante les prendra en compte. Pour ne pas attendre 24 heures, clique sur **Lancer une collecte** dans l'Historique : le prochain passage du cron la traitera.
+Connecte-toi, va dans **Sources RSS** et ajoute tes flux. La collecte suivante les prendra en compte. Pour ne pas attendre l'heure de la collecte automatique, clique sur **Lancer une collecte** dans l'Historique : le prochain passage du cron la traitera.
 
 ## Mettre à jour le site
 

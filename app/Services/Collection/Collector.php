@@ -267,7 +267,7 @@ class Collector
      * Finds a preview image for articles whose feed gave none, within a time budget.
      * Each article is checked once, success or not; requests to one site are spaced by a second.
      */
-    public function fillPreviewImages(int $limit = 15, float $budgetSeconds = 20): int
+    public function fillPreviewImages(int $limit = 15, float $budgetSeconds = 20, ?callable $onFailure = null): int
     {
         if (! config('watch.preview_images')) {
             return 0;
@@ -280,7 +280,12 @@ class Collector
             $began = microtime(true);
             $lastHit = [];
             $found = 0;
-            foreach (Article::whereNull('image_url')->whereNull('image_checked_at')->latest('id')->limit($limit)->get() as $article) {
+            $candidates = Article::whereNull('image_url')
+                ->where(fn ($q) => $q->whereNull('image_checked_at')
+                    // Failures are retried every 6 hours while the article is less than 3 days old.
+                    ->orWhere(fn ($retry) => $retry->where('image_checked_at', '<', now()->subHours(6))->where('collected_at', '>', now()->subDays(3))))
+                ->orderByRaw('image_checked_at is not null')->latest('id')->limit($limit)->get();
+            foreach ($candidates as $article) {
                 if (microtime(true) - $began > $budgetSeconds) {
                     break;
                 }
@@ -290,11 +295,17 @@ class Collector
                     usleep((int) ($wait * 1_000_000));
                 }
                 $lastHit[$host] = microtime(true);
+                $failure = null;
                 try {
                     $image = $this->previews->find($article->url);
+                    $failure = $image === null ? 'Aucune image d’aperçu (og:image) déclarée par la page.' : null;
                 } catch (Throwable $e) {
                     $image = null;
-                    Log::info('watch.preview_failed', ['article_id' => $article->id, 'exception' => $e::class]);
+                    $failure = $e->getMessage();
+                    Log::info('watch.preview_failed', ['article_id' => $article->id, 'exception' => $e::class, 'message' => $failure]);
+                }
+                if ($failure !== null && $onFailure !== null) {
+                    $onFailure($article, $failure);
                 }
                 $article->update(['image_url' => $image, 'image_checked_at' => now()]);
                 $found += $image !== null ? 1 : 0;

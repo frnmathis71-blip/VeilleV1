@@ -7,6 +7,7 @@ use App\Enums\AnalysisStatus;
 use App\Enums\RelevanceVerdict;
 use App\Models\Article;
 use App\Models\Category;
+use App\Services\Feeds\FeedParser;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
@@ -68,6 +69,7 @@ class GeminiAnalyzer implements ArticleAnalyzer
             $article->analysis()->updateOrCreate(['article_id' => $article->id], [
                 'score' => $result['score'],
                 'verdict' => $verdict,
+                'title_fr' => $result['title_fr'] !== '' ? $result['title_fr'] : null,
                 'summary' => $summary,
                 'summary_language' => $result['summary'] !== '' ? 'fr' : $article->language,
                 'explanation' => $result['reason'],
@@ -110,6 +112,7 @@ class GeminiAnalyzer implements ArticleAnalyzer
             - relevant = true seulement si l'article apporte une information informatique utile à cette veille.
             - score : entier de 0 à 100, cohérent avec relevant (au moins 50 si pertinent, moins de 50 sinon).
             - reason : une ou deux phrases en français qui justifient le verdict.
+            - title_fr : le titre de l'article en français ; s'il est déjà en français, recopie-le tel quel. Traduction fidèle, sans guillemets ni ajout.
             - summary : résumé factuel en français de deux ou trois phrases, fondé uniquement sur l'extrait.
             - categories : slugs des catégories qui correspondent à l'article (liste vide si aucune).
             - criteria : notes de 0 à 100 pour novelty (nouveauté), importance, impact et usefulness (utilité pour un professionnel de l'informatique).
@@ -135,6 +138,7 @@ class GeminiAnalyzer implements ArticleAnalyzer
                 'responseSchema' => [
                     'type' => 'OBJECT',
                     'properties' => [
+                        'title_fr' => ['type' => 'STRING'],
                         'summary' => ['type' => 'STRING'],
                         'reason' => ['type' => 'STRING'],
                         'relevant' => ['type' => 'BOOLEAN'],
@@ -146,8 +150,8 @@ class GeminiAnalyzer implements ArticleAnalyzer
                             'required' => self::CRITERIA,
                         ],
                     ],
-                    'required' => ['summary', 'reason', 'relevant', 'score', 'categories', 'criteria'],
-                    'propertyOrdering' => ['summary', 'reason', 'relevant', 'score', 'categories', 'criteria'],
+                    'required' => ['title_fr', 'summary', 'reason', 'relevant', 'score', 'categories', 'criteria'],
+                    'propertyOrdering' => ['title_fr', 'summary', 'reason', 'relevant', 'score', 'categories', 'criteria'],
                 ],
             ],
         ];
@@ -191,7 +195,7 @@ class GeminiAnalyzer implements ArticleAnalyzer
 
     /**
      * @param  array<int, string>  $allowedSlugs
-     * @return array{relevant: bool, score: int, reason: string, summary: string, categories: list<string>, criteria: array<string, int>}
+     * @return array{relevant: bool, score: int, reason: string, title_fr: string, summary: string, categories: list<string>, criteria: array<string, int>}
      */
     private function parse(mixed $body, array $allowedSlugs): array
     {
@@ -229,6 +233,7 @@ class GeminiAnalyzer implements ArticleAnalyzer
             'relevant' => $data['relevant'],
             'score' => $clamp($data['score']),
             'reason' => $reason !== '' ? $reason : 'Verdict rendu par Gemini sans justification.',
+            'title_fr' => Str::limit(FeedParser::withoutEmoji(trim(strip_tags((string) ($data['title_fr'] ?? '')), " \t\n\r\0\x0B\"«»")), 500, ''),
             'summary' => Str::limit(trim(strip_tags((string) ($data['summary'] ?? ''))), 1000),
             'categories' => array_values(array_unique($categories)),
             'criteria' => $criteria,

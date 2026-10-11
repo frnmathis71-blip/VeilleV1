@@ -74,3 +74,22 @@ test('emoji are removed from feed titles and excerpts', function () {
 
     expect($entry->title)->toBe('Bon plan : le Pixel 10 à prix cassé')->and($entry->description)->toBe('Vite ici !');
 });
+
+test('failed image lookups are retried later while the article is recent', function () {
+    $source = RssSource::create(['name' => 'TechCrunch', 'url' => 'https://techcrunch.com/feed', 'url_hash' => hash('sha256', 't'), 'active' => true, 'reliability' => 70]);
+    Article::create(['rss_source_id' => $source->id, 'title' => 'retry', 'url' => 'https://techcrunch.com/retry', 'canonical_url_hash' => hash('sha256', 'retry'), 'collected_at' => now()]);
+    $calls = 0;
+    $this->mock(FeedFetcher::class)->shouldReceive('fetchPageHead')->andReturnUsing(function () use (&$calls) {
+        $calls++;
+
+        return $calls === 1 ? throw new RuntimeException('Page indisponible (HTTP 403).') : '<meta property="og:image" content="https://techcrunch.com/une.jpg">';
+    });
+
+    $this->artisan('veille:images')->expectsOutputToContain('HTTP 403')->assertSuccessful();
+    $this->artisan('veille:images')->assertSuccessful(); // Too early to retry.
+    expect($calls)->toBe(1);
+
+    $this->travel(7)->hours();
+    $this->artisan('veille:images')->assertSuccessful();
+    expect($calls)->toBe(2)->and(Article::first()->image_url)->toBe('https://techcrunch.com/une.jpg');
+});

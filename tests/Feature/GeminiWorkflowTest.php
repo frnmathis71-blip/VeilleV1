@@ -42,6 +42,7 @@ function geminiReply(array $data): array
 function geminiVerdict(bool $relevant): array
 {
     return geminiReply([
+        'title_fr' => $relevant ? 'PHP 9 publié avec un nouveau JIT' : '« Black Friday : -50 % sur les téléviseurs »',
         'summary' => $relevant ? 'L’équipe PHP publie une version majeure.' : 'Promotions sur des téléviseurs.',
         'reason' => $relevant ? 'Nouvelle version d’un langage utilisé en développement web.' : 'Publicité sans contenu informatique.',
         'relevant' => $relevant,
@@ -216,4 +217,20 @@ test('settings page saves the ai profile and new pages are reachable', function 
     expect(app(WatchSettings::class)->all()['ai_profile'])->toBe('Uniquement la cybersécurité.');
     $this->get(route('watch.settings'))->assertOk()->assertSee('Tri par l’IA (Gemini)', false);
     $this->get(route('articles.irrelevant'))->assertOk()->assertSee('Articles impertinents');
+});
+
+test('titles are translated into French and the original stays visible', function () {
+    $this->mock(FeedFetcher::class)->shouldReceive('fetch')->once()->andReturn(geminiFeed());
+    fakeGeminiByTitle();
+    runGeminiCollection();
+    $php = Article::where('title', 'like', 'PHP 9%')->first();
+    $promo = Article::where('title', 'like', 'Black Friday%')->first();
+
+    expect($php->displayTitle())->toBe('PHP 9 publié avec un nouveau JIT')->and($php->isTitleTranslated())->toBeTrue()
+        ->and($promo->analysis->title_fr)->toBe('Black Friday : -50 % sur les téléviseurs');
+
+    $this->actingAs(User::factory()->create());
+    $this->get(route('articles.interesting'))->assertSee('PHP 9 publié avec un nouveau JIT');
+    $this->get(route('articles.show', $php))->assertSee('PHP 9 publié avec un nouveau JIT')->assertSee('Titre original : PHP 9 released with new JIT');
+    $this->get(route('articles.all', ['search' => 'nouveau JIT']))->assertSee('PHP 9 publié');
 });

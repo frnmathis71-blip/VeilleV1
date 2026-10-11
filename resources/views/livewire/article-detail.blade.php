@@ -3,7 +3,8 @@
     @if($message)<p class="notice" role="status">{{ $message }}</p>@endif
     <article class="panel space-y-5">
         <p class="text-sm text-zinc-500">{{ $article->source?->name }} · {{ $article->published_at?->timezone('Europe/Paris')->format('d/m/Y H:i') ?? 'Date inconnue' }}</p>
-        <h1 class="text-3xl font-semibold leading-tight">{{ $article->title }}</h1>
+        <h1 class="text-3xl font-semibold leading-tight">{{ $article->displayTitle() }}</h1>
+        @if ($article->isTitleTranslated())<p class="text-sm text-zinc-500" lang="{{ $article->language ?: 'en' }}">Titre original : {{ $article->title }}</p>@endif
         <div class="flex flex-wrap gap-2">@if($article->analysis?->verdict)<x-verdict-badge :verdict="$article->analysis->verdict" />@endif<span class="rounded bg-blue-50 px-3 py-1 font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300">Score : {{ $article->analysis?->score ?? 'En attente' }}</span>@foreach($article->categories as $cat)<span class="rounded bg-zinc-100 px-3 py-1 text-sm dark:bg-zinc-800">{{ $cat->name }}</span>@endforeach</div>
         @if($article->image_url)<img src="{{ $article->image_url }}" alt="" referrerpolicy="no-referrer" class="max-h-80 w-full rounded-lg object-cover" style="max-height:20rem;width:100%;object-fit:cover" />@endif
         @php($byAi = $article->analysis?->method === 'gemini')

@@ -61,6 +61,20 @@ class Article extends Model
             ->whereHas('analysis', fn (Builder $q) => $q->where('verdict', $verdict));
     }
 
+    /** Title shown in the interface: the French translation when the analyzer provided one. */
+    public function displayTitle(): string
+    {
+        $translated = $this->analysis?->title_fr;
+
+        return filled($translated) ? (string) $translated : $this->title;
+    }
+
+    /** True when the displayed title differs from the original one (translated article). */
+    public function isTitleTranslated(): bool
+    {
+        return mb_strtolower(trim($this->displayTitle())) !== mb_strtolower(trim($this->title));
+    }
+
     /** @return HasMany<ArticleReview, $this> */
     public function reviews(): HasMany
     {

@@ -8,7 +8,8 @@ return [
     'defaults' => [
         'threshold' => 70,
         'batch_size' => 30,
-        'interval_hours' => 24,
+        // Hour (0-23, Paris time) of the daily automatic collection.
+        'collect_hour' => 6,
         'retention_days' => 180,
         'enabled' => true,
         'priority_keywords' => 'intelligence artificielle, cybersécurité, open source, framework',

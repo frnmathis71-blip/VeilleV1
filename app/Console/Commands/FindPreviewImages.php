@@ -23,7 +23,9 @@ class FindPreviewImages extends Command
             Article::whereNull('image_url')->update(['image_checked_at' => null]);
         }
         $limit = max(1, (int) $this->option('limit'));
-        $found = $collector->fillPreviewImages($limit, $limit * 15);
+        $found = $collector->fillPreviewImages($limit, $limit * 15, function ($article, string $reason): void {
+            $this->warn('Sans image : '.mb_strimwidth($article->title, 0, 60, '…').' — '.$reason);
+        });
         $this->info($found.' image(s) trouvée(s). Restent sans vérification : '.Article::whereNull('image_url')->whereNull('image_checked_at')->count().'.');
 
         return self::SUCCESS;
