@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Enums\RelevanceVerdict;
 use App\Models\Article;
 use App\Models\ArticleAnalysis;
+use App\Models\ArticleReview;
 use App\Models\Category;
 use App\Models\RssSource;
 use Illuminate\Database\Eloquent\Builder;
@@ -59,6 +60,9 @@ class Articles extends Component
         if ($this->mode === 'interesting' && ! request()->has('decision')) {
             $this->decision = 'pending';
         }
+        if ($this->mode === 'library' && ! request()->has('sort')) {
+            $this->sort = 'decided'; // Latest additions to the library first.
+        }
     }
 
     public function updated(string $property): void
@@ -112,6 +116,10 @@ class Articles extends Component
         }
         if ($this->sort === 'score') {
             $query->orderByDesc(ArticleAnalysis::select('score')->whereColumn('article_id', 'articles.id')->limit(1));
+        } elseif ($this->sort === 'processed') {
+            $query->orderByDesc(ArticleAnalysis::select('analyzed_at')->whereColumn('article_id', 'articles.id')->limit(1));
+        } elseif ($this->sort === 'decided') {
+            $query->orderByDesc(ArticleReview::select('decided_at')->whereColumn('article_id', 'articles.id')->where('user_id', $userId)->limit(1));
         } else {
             $query->orderBy('published_at', $this->sort === 'oldest' ? 'asc' : 'desc');
         }

@@ -309,3 +309,25 @@ test('gemini sees the articles already selected to avoid keeping one story twice
     Http::assertSent(fn (Request $request) => str_contains($request['contents'][0]['parts'][0]['text'], 'Titre : Black Friday')
         && str_contains($request['contents'][0]['parts'][0]['text'], '- PHP 9 publié avec un nouveau JIT'));
 });
+
+test('the processing date and the dates of personal status changes are shown', function () {
+    $this->mock(FeedFetcher::class)->shouldReceive('fetch')->once()->andReturn(geminiFeed());
+    fakeGeminiByTitle();
+    $this->travelTo(now()->setDate(2026, 10, 12)->setTime(6, 15));
+    runGeminiCollection();
+    $php = Article::where('title', 'like', 'PHP 9%')->first();
+    $promo = Article::where('title', 'like', 'Black Friday%')->first();
+
+    $this->actingAs(User::factory()->create());
+    $this->travelTo(now()->setDate(2026, 10, 13)->setTime(9, 30));
+    Livewire::test(ArticleDetail::class, ['article' => $promo])->call('decide', 'relevant')->call('toggleLater');
+    $this->travelTo(now()->setDate(2026, 10, 14)->setTime(10, 0));
+    Livewire::test(ArticleDetail::class, ['article' => $php])->call('decide', 'relevant');
+
+    $this->get(route('articles.show', $promo))
+        ->assertSee('Traité le '.$promo->analysis->analyzed_at->timezone('Europe/Paris')->format('d/m/Y'))
+        ->assertSee('Ajouté à votre bibliothèque le 13/10/2026')
+        ->assertSee('Ajouté à la liste de lecture le 13/10/2026');
+    // The library lists the latest additions first, with their date.
+    $this->get(route('articles.library'))->assertSeeInOrder(['PHP 9 publié', 'Ajouté à la bibliothèque le 14/10/2026', 'Black Friday', 'Ajouté à la bibliothèque le 13/10/2026']);
+});

@@ -9,7 +9,7 @@
         <flux:input wire:model.live.debounce.400ms="search" label="Rechercher" placeholder="Un sujet, une technologie…" />
         <flux:select wire:model.live="category" label="Catégorie"><option value="">Toutes</option>@foreach($categories as $cat)<option value="{{ $cat->id }}">{{ $cat->name }}</option>@endforeach</flux:select>
         <flux:select wire:model.live="source" label="Source"><option value="">Toutes</option>@foreach($sources as $rss)<option value="{{ $rss->id }}">{{ $rss->name }}</option>@endforeach</flux:select>
-        <flux:select wire:model.live="sort" label="Trier par"><option value="newest">Plus récents</option><option value="oldest">Plus anciens</option><option value="score">Meilleur score</option></flux:select>
+        <flux:select wire:model.live="sort" label="Trier par"><option value="newest">Plus récents</option><option value="oldest">Plus anciens</option><option value="score">Meilleur score</option><option value="processed">Dernier traitement</option>@if($mode === 'library')<option value="decided">Ajout à la bibliothèque</option>@endif</flux:select>
         <flux:input wire:model.live="from" label="Publié depuis" type="date" />
         <flux:input wire:model.live="to" label="Publié jusqu’au" type="date" />
         <flux:input wire:model.live.debounce.400ms="score" label="Score minimum" type="number" min="0" max="100" />

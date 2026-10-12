@@ -17,6 +17,9 @@
     $palette = $palettes[crc32($category->slug ?? (string) $article->rss_source_id) % count($palettes)];
     $label = $category->name ?? $article->source?->name ?? 'Veille';
     $url = route('articles.show', $article);
+    // Personal review of the current user, when the list loaded it.
+    $review = $article->relationLoaded('reviews') ? $article->reviews->firstWhere('user_id', auth()->id()) : null;
+    $when = fn ($date) => $date->timezone('Europe/Paris')->format('d/m/Y \à H:i');
 @endphp
 <article {{ $attributes->class('group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-blue-700') }}>
     <a href="{{ $url }}" wire:navigate class="relative block overflow-hidden bg-zinc-100 dark:bg-zinc-800" style="aspect-ratio:16/9" tabindex="-1" aria-hidden="true"
@@ -38,6 +41,12 @@
         <h2 class="line-clamp-3 font-semibold leading-snug" title="{{ $article->isTitleTranslated() ? 'Titre original : '.$article->title : $article->title }}">
             <a href="{{ $url }}" wire:navigate class="hover:text-blue-600 dark:hover:text-blue-400">{{ $article->displayTitle() }}</a>
         </h2>
+        <ul class="space-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            <li>{{ $article->analysis?->analyzed_at ? 'Traité le '.$when($article->analysis->analyzed_at) : 'Analyse en attente' }}</li>
+            @if ($review?->decision && $review->decided_at)
+                <li class="font-medium {{ $review->decision->value === 'relevant' ? 'text-emerald-700 dark:text-emerald-400' : '' }}">{{ $review->decision->value === 'relevant' ? 'Ajouté à la bibliothèque' : 'Marqué non pertinent' }} le {{ $when($review->decided_at) }}</li>
+            @endif
+        </ul>
         <flux:button class="mt-auto w-full" size="sm" :href="$url" wire:navigate>Consulter</flux:button>
     </div>
 </article>

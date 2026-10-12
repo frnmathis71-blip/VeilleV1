@@ -2,7 +2,9 @@
     <flux:button :href="route('articles.all')" wire:navigate>Retour aux articles</flux:button>
     @if($message)<p class="notice" role="status">{{ $message }}</p>@endif
     <article class="panel space-y-5">
-        <p class="text-sm text-zinc-500">{{ $article->source?->name }} · {{ $article->published_at?->timezone('Europe/Paris')->format('d/m/Y H:i') ?? 'Date inconnue' }}</p>
+        @php($when = fn ($date) => $date->timezone('Europe/Paris')->format('d/m/Y à H:i'))
+        <p class="text-sm text-zinc-500">{{ $article->source?->name }} · Publié le {{ $article->published_at ? $when($article->published_at) : 'date inconnue' }}</p>
+        <p class="text-sm text-zinc-500">@if($article->collected_at)Collecté le {{ $when($article->collected_at) }} · @endif{{ $article->analysis?->analyzed_at ? 'Traité le '.$when($article->analysis->analyzed_at) : 'Analyse en attente' }}</p>
         <h1 class="text-3xl font-semibold leading-tight">{{ $article->displayTitle() }}</h1>
         @if ($article->isTitleTranslated())<p class="text-sm text-zinc-500" lang="{{ $article->language ?: 'en' }}">Titre original : {{ $article->title }}</p>@endif
         <div class="flex flex-wrap gap-2">@if($article->analysis?->verdict)<x-verdict-badge :verdict="$article->analysis->verdict" />@endif<span class="rounded bg-blue-50 px-3 py-1 font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300">Score : {{ $article->analysis?->score ?? 'En attente' }}</span>@foreach($article->categories as $cat)<span class="rounded bg-zinc-100 px-3 py-1 text-sm dark:bg-zinc-800">{{ $cat->name }}</span>@endforeach</div>
@@ -24,6 +26,11 @@
         <h2 class="text-xl font-semibold">Votre décision</h2>
         <p class="text-sm text-zinc-500">Le verdict de l’IA est indépendant de votre avis : marquer un article « Pertinent » l’ajoute à votre bibliothèque, même si l’IA l’a écarté.</p>
         <p>État : {{ match($review->decision?->value) { 'relevant' => 'Pertinent', 'rejected' => 'Non pertinent', default => 'En attente de décision' } }} · {{ $review->read_at ? 'Lu' : 'Non lu' }}</p>
+        <ul class="space-y-1 text-sm text-zinc-500">
+            @if($review->decision && $review->decided_at)<li>{{ $review->decision->value === 'relevant' ? 'Ajouté à votre bibliothèque' : 'Marqué non pertinent' }} le {{ $when($review->decided_at) }}</li>@endif
+            @if($review->read_at)<li>Lu le {{ $when($review->read_at) }}</li>@endif
+            @if($review->saved_for_later_at)<li>Ajouté à la liste de lecture le {{ $when($review->saved_for_later_at) }}</li>@endif
+        </ul>
         <div class="flex flex-wrap gap-2">
             <flux:button variant="primary" wire:click="decide('relevant')">Pertinent</flux:button>
             <flux:button wire:click="decide('rejected')">Non pertinent</flux:button>
