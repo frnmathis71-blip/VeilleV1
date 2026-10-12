@@ -30,7 +30,6 @@ class LocalAnalyzer implements ArticleAnalyzer
         }
         $priority = $this->hits($text, explode(',', $settings['priority_keywords']));
         $excluded = $this->hits($text, explode(',', $settings['excluded_keywords'])) > 0;
-        $age = $article->published_at ? max(0, $article->published_at->diffInDays(now(), false)) : null;
         $criteria = [
             'novelty' => min(100, 25 + 25 * $this->hits($text, ['nouveau', 'nouvelle', 'annonce', 'launch', 'release', 'introduc', 'dévoile', 'breakthrough'])),
             'importance' => min(100, 30 + 25 * $this->hits($text, ['majeur', 'critical', 'critique', 'vulnerability', 'mondial', 'million', 'first', 'premier'])),
@@ -38,18 +37,13 @@ class LocalAnalyzer implements ArticleAnalyzer
             'usefulness' => min(100, 25 + 20 * $priority + 15 * $this->hits($text, ['developer', 'développeur', 'tutorial', 'guide', 'open source', 'framework'])),
             'originality' => 50, // Unknown without comparing reporting: explicitly neutral.
             'reliability' => $article->source->reliability,
-            'freshness' => $age === null ? 30 : ($age <= 2 ? 100 : ($age <= 7 ? 70 : ($age <= 30 ? 40 : 10))),
+            'freshness' => Scoring::freshness($article->published_at),
         ];
-        $weightTotal = array_sum($settings['weights']);
-        $score = 0;
-        foreach ($criteria as $key => $value) {
-            $score += $value * ($settings['weights'][$key] ?? 0) / max(1, $weightTotal);
-        }
-        $score = $excluded ? 0 : min(100, max(0, (int) round($score)));
+        $score = $excluded ? 0 : Scoring::weighted($criteria, $settings['weights']);
         $summary = Str::limit($article->description ?: $article->title, 650);
         $explanation = $excluded ? 'Un mot-clé exclu a été détecté.' : count($categories).' catégorie(s) détectée(s), '.$priority.' mot(s)-clé(s) prioritaire(s).';
         $explanation .= ' Score heuristique local ; originalité non évaluée (valeur neutre).';
-        if ($age === null) {
+        if ($article->published_at === null) {
             $explanation .= ' Date de publication inconnue.';
         }
         DB::transaction(function () use ($article, $settings, $criteria, $score, $summary, $explanation, $categories): void {
@@ -69,10 +63,6 @@ class LocalAnalyzer implements ArticleAnalyzer
     /** @param array<int, string> $words */
     private function hits(string $text, array $words): int
     {
-        return count(array_filter($words, static function (string $word) use ($text): bool {
-            $word = mb_strtolower(trim($word));
-
-            return $word !== '' && preg_match('/(?<![\pL\pN])'.preg_quote($word, '/').'(?![\pL\pN])/u', $text) === 1;
-        }));
+        return count(Scoring::matches($text, $words));
     }
 }

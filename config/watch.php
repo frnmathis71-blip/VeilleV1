@@ -10,6 +10,10 @@ return [
         'batch_size' => 30,
         // Hour (0-23, Paris time) of the daily automatic collection.
         'collect_hour' => 6,
+        // After this many minutes a collection closes; unanalyzed articles wait for the next one.
+        'max_run_minutes' => 40,
+        // Articles published earlier than this are judged outdated without calling the AI.
+        'max_age_days' => 7,
         'retention_days' => 180,
         'enabled' => true,
         'priority_keywords' => 'intelligence artificielle, cybersécurité, open source, framework',

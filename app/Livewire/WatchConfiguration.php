@@ -35,6 +35,8 @@ class WatchConfiguration extends Component
             'settings.threshold' => 'required|integer|min:0|max:100',
             'settings.batch_size' => 'required|integer|min:1|max:100',
             'settings.collect_hour' => 'required|integer|between:0,23',
+            'settings.max_run_minutes' => 'required|integer|min:5|max:600',
+            'settings.max_age_days' => 'required|integer|min:0|max:365',
             'settings.retention_days' => 'required|integer|min:30|max:3650',
             'settings.irrelevant_retention_days' => 'required|integer|min:1|max:3650',
             'settings.ai_profile' => 'nullable|string|max:3000',

@@ -59,7 +59,7 @@ test('SSRF guard rejects local addresses credentials non HTTP and mixed DNS answ
     expect($guard->isPublicIp('93.184.216.34'))->toBeTrue();
 });
 
-test('collection resumes its persisted batch and never closes before all entries are analyzed', function () {
+test('collection imports every feed first, then analyzes in batches and never closes before all entries are analyzed', function () {
     $this->seed(CategorySeeder::class);
     watchSource();
     $settings = app(WatchSettings::class);
@@ -69,7 +69,10 @@ test('collection resumes its persisted batch and never closes before all entries
     $run = $collector->request();
     expect($collector->request()->id)->toBe($run->id);
     $first = $collector->process();
-    expect($first->status)->toBe(CollectionStatus::Running)->and($first->finished_at)->toBeNull()->and(Article::count())->toBe(1);
+    expect($first->status)->toBe(CollectionStatus::Running)->and($first->finished_at)->toBeNull()
+        ->and(Article::count())->toBe(2)->and($first->analyzed_count)->toBe(1);
+    // The dated article is analyzed first.
+    expect(Article::where('analysis_status', 'completed')->first()->title)->toContain('framework');
     $second = $collector->process();
     expect($second->status)->toBe(CollectionStatus::Completed)->and($second->created_count)->toBe(2)->and($second->analyzed_count)->toBe(2);
     expect(ArticleReview::count())->toBe(0)->and(Article::where('analysis_status', 'completed')->count())->toBe(2);

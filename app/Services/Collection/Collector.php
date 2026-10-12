@@ -62,7 +62,7 @@ class Collector
                     $run->sources()->create(['rss_source_id' => $source->id]);
                 }
                 // No other run is active: articles still waiting for a verdict (AI unavailable, failure) get another chance.
-                $backlog = Article::whereIn('analysis_status', ['pending', 'processing', 'failed'])->orderBy('id')->limit(self::BACKLOG_LIMIT)->pluck('id');
+                $backlog = Article::whereIn('analysis_status', ['pending', 'processing', 'failed'])->orderByDesc('id')->limit(self::BACKLOG_LIMIT)->pluck('id');
                 foreach ($backlog as $articleId) {
                     $run->items()->create(['article_id' => $articleId]);
                 }
@@ -89,68 +89,27 @@ class Collector
             $began = microtime(true);
             $run->update(['status' => CollectionStatus::Running, 'started_at' => $run->started_at ?? now(), 'heartbeat_at' => now()]);
             $settings = $run->configuration_snapshot;
-            $limit = max(1, min(100, (int) $settings['batch_size']));
-            $processed = 0;
-            // Imported articles take priority, including an item interrupted on the previous invocation.
-            $due = $run->items()->whereIn('status', ['pending', 'processing'])
-                ->where(fn ($q) => $q->whereNull('retry_at')->orWhere('retry_at', '<=', now()))
-                ->orderBy('id')->limit($limit)->get();
-            foreach ($due as $item) {
-                if (! $this->analyze($item, $settings)) {
-                    break; // Analyzer paused: keep the remaining items for a later invocation.
-                }
-                $processed++;
-                if (microtime(true) - $began > 25) {
-                    break;
-                }
+            $maxMinutes = max(1, (int) ($settings['max_run_minutes'] ?? config('watch.defaults.max_run_minutes')));
+            if ($run->started_at->lte(now()->subMinutes($maxMinutes))) {
+                $this->close($run);
+                $this->refreshReport($run, (int) round((microtime(true) - $began) * 1000));
+
+                return $run->fresh();
             }
-            foreach ($run->sources()->whereIn('status', ['pending', 'running'])->orderBy('id')->get() as $state) {
-                if ($processed >= $limit || microtime(true) - $began > 25) {
-                    break;
-                }
-                $source = RssSource::find($state->rss_source_id);
-                if (! $source || ! $source->active) {
-                    $state->update(['status' => CollectionStatus::Completed, 'finished_at' => now(), 'entries' => null]);
-
-                    continue;
-                }
-                if ($state->entries === null) {
-                    if ($state->retry_at?->isFuture()) {
-                        continue;
-                    }
-                    // Shared throttle also covers manual requests and source tests.
-                    if (! Cache::add('watch-host:'.hash('sha256', (string) parse_url($source->url, PHP_URL_HOST)), true, 10)) {
-                        continue;
-                    }
-                    try {
-                        $state->update(['status' => CollectionStatus::Running, 'started_at' => $state->started_at ?? now(), 'attempts' => $state->attempts + 1]);
-                        $source->update(['last_attempt_at' => now()]);
-                        $entries = $this->parser->parse($this->fetcher->fetch($source->url));
-                        $state->update(['entries' => array_map(fn (FeedEntry $entry) => $entry->toArray(), $entries), 'discovered_count' => count($entries), 'error' => null, 'retry_at' => null]);
-                        $source->update(['last_success_at' => now(), 'last_error' => null]);
-                    } catch (Throwable $e) {
-                        $state->update([
-                            'status' => $state->attempts >= 3 ? CollectionStatus::Failed : CollectionStatus::Pending,
-                            'error' => $this->safeError($e), 'retry_at' => now()->addMinutes(5),
-                            'finished_at' => $state->attempts >= 3 ? now() : null,
-                        ]);
-                        $source->update(['last_error' => $this->safeError($e)]);
-                        Log::warning('watch.feed_failed', ['run_id' => $run->id, 'source_id' => $source->id, 'exception' => $e::class]);
-
-                        continue;
-                    }
-                }
-                $entries = $state->entries ?? [];
-                while ($state->cursor < count($entries) && $processed < $limit && microtime(true) - $began <= 25) {
-                    $entry = FeedEntry::fromArray($entries[$state->cursor]);
-                    $item = $this->import($run, $state, $source, $entry);
-                    if ($item) {
-                        $this->analyze($item, $settings);
-                    }
-                    $processed++;
-                }
-                if ($state->cursor >= count($entries)) {
-                    $state->update(['status' => CollectionStatus::Completed, 'finished_at' => now(), 'entries' => null]);
+            // Feeds are imported first (cheap, no AI): the whole collection is then known and analyzed best-first.
+            $this->importSources($run, $began);
+            $limit = max(1, min(100, (int) $settings['batch_size']));
+            $due = $run->items()->whereIn('collection_run_items.status', ['pending', 'processing'])
+                ->where(fn ($q) => $q->whereNull('collection_run_items.retry_at')->orWhere('collection_run_items.retry_at', '<=', now()))
+                ->join('articles', 'articles.id', '=', 'collection_run_items.article_id')
+                ->join('rss_sources', 'rss_sources.id', '=', 'articles.rss_source_id')
+                // Most recent first, then the most reliable sources: if time runs out, what is left matters least.
+                ->orderByRaw('articles.published_at is null')->orderByDesc('articles.published_at')
+                ->orderByDesc('rss_sources.reliability')->orderBy('collection_run_items.id')
+                ->select('collection_run_items.*')->limit($limit)->get();
+            foreach ($due as $item) {
+                if (microtime(true) - $began > 25 || ! $this->analyze($item, $settings)) {
+                    break; // Out of time, or analyzer paused: the remaining items wait for a later invocation.
                 }
             }
             $this->refreshReport($run, (int) round((microtime(true) - $began) * 1000));
@@ -158,6 +117,76 @@ class Collector
             return $run->fresh();
         } finally {
             $lock->release();
+        }
+    }
+
+    /**
+     * Time limit reached: import what the feeds already returned, stop waiting for the others,
+     * and leave unanalyzed articles to the next collection (its backlog re-queues them).
+     */
+    private function close(CollectionRun $run): void
+    {
+        $this->importSources($run, microtime(true), closing: true);
+        $run->sources()->whereIn('status', ['pending', 'running'])->update([
+            'status' => CollectionStatus::Failed->value, 'entries' => null, 'finished_at' => now(),
+            'error' => 'Flux non récupéré avant la fin du délai de collecte.',
+        ]);
+        $deferred = $run->items()->whereIn('status', ['pending', 'processing'])->count();
+        $run->items()->whereIn('status', ['pending', 'processing'])->delete();
+        $run->update(['deferred_count' => $run->deferred_count + $deferred]);
+        Log::info('watch.run_closed_by_time_limit', ['run_id' => $run->id, 'deferred' => $deferred]);
+    }
+
+    /**
+     * Fetches pending feeds and imports their entries (no AI call), within the invocation's time budget.
+     *
+     * @param  bool  $closing  the run is being closed: import what was already fetched, download nothing more
+     */
+    private function importSources(CollectionRun $run, float $began, bool $closing = false): void
+    {
+        foreach ($run->sources()->whereIn('status', ['pending', 'running'])->orderBy('id')->get() as $state) {
+            if (! $closing && microtime(true) - $began > 20) {
+                break;
+            }
+            $source = RssSource::find($state->rss_source_id);
+            if (! $source || ! $source->active) {
+                $state->update(['status' => CollectionStatus::Completed, 'finished_at' => now(), 'entries' => null]);
+
+                continue;
+            }
+            if ($state->entries === null) {
+                if ($closing || $state->retry_at?->isFuture()) {
+                    continue;
+                }
+                // Shared throttle also covers manual requests and source tests.
+                if (! Cache::add('watch-host:'.hash('sha256', (string) parse_url($source->url, PHP_URL_HOST)), true, 10)) {
+                    continue;
+                }
+                try {
+                    $state->update(['status' => CollectionStatus::Running, 'started_at' => $state->started_at ?? now(), 'attempts' => $state->attempts + 1]);
+                    $source->update(['last_attempt_at' => now()]);
+                    $entries = $this->parser->parse($this->fetcher->fetch($source->url));
+                    $state->update(['entries' => array_map(fn (FeedEntry $entry) => $entry->toArray(), $entries), 'discovered_count' => count($entries), 'error' => null, 'retry_at' => null]);
+                    $source->update(['last_success_at' => now(), 'last_error' => null]);
+                } catch (Throwable $e) {
+                    $state->update([
+                        'status' => $state->attempts >= 3 ? CollectionStatus::Failed : CollectionStatus::Pending,
+                        'error' => $this->safeError($e), 'retry_at' => now()->addMinutes(5),
+                        'finished_at' => $state->attempts >= 3 ? now() : null,
+                    ]);
+                    $source->update(['last_error' => $this->safeError($e)]);
+                    Log::warning('watch.feed_failed', ['run_id' => $run->id, 'source_id' => $source->id, 'exception' => $e::class]);
+
+                    continue;
+                }
+            }
+            $entries = $state->entries ?? [];
+            while ($state->cursor < count($entries) && ($closing || microtime(true) - $began <= 20)) {
+                $this->import($run, $state, $source, FeedEntry::fromArray($entries[$state->cursor]));
+            }
+            if ($state->cursor >= count($entries)) {
+                $state->update(['status' => CollectionStatus::Completed, 'finished_at' => now(), 'entries' => null]);
+            }
         }
     }
 

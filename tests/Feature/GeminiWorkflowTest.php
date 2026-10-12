@@ -56,7 +56,7 @@ function geminiVerdict(bool $relevant): array
 function fakeGeminiByTitle(): void
 {
     Http::fake(['generativelanguage.googleapis.com/*' => fn (Request $request) => Http::response(
-        geminiVerdict(str_contains(json_encode($request->data()), 'PHP 9')),
+        geminiVerdict(str_contains($request['contents'][0]['parts'][0]['text'], 'Titre : PHP 9')),
     )]);
 }
 
@@ -233,4 +233,79 @@ test('titles are translated into French and the original stays visible', functio
     $this->get(route('articles.interesting'))->assertSee('PHP 9 publié avec un nouveau JIT');
     $this->get(route('articles.show', $php))->assertSee('PHP 9 publié avec un nouveau JIT')->assertSee('Titre original : PHP 9 released with new JIT');
     $this->get(route('articles.all', ['search' => 'nouveau JIT']))->assertSee('PHP 9 publié');
+});
+
+test('a collection that runs too long closes and leaves unanalyzed articles to the next one', function () {
+    $this->mock(FeedFetcher::class)->shouldReceive('fetch')->twice()->andReturn(geminiFeed());
+    $quotaExceeded = true;
+    Http::fake(['generativelanguage.googleapis.com/*' => function (Request $request) use (&$quotaExceeded) {
+        return $quotaExceeded
+        ? Http::response(['error' => ['code' => 429, 'message' => 'Quota exceeded']], 429)
+        : Http::response(geminiVerdict(str_contains($request['contents'][0]['parts'][0]['text'], 'Titre : PHP 9')));
+    }]);
+
+    $run = runGeminiCollection();
+    expect($run->status)->toBe(CollectionStatus::Running);
+
+    $this->travel(41)->minutes();
+    $closed = app(Collector::class)->process();
+
+    expect($closed->status)->toBe(CollectionStatus::Completed)->and($closed->finished_at)->not->toBeNull()
+        ->and($closed->deferred_count)->toBe(2)->and($closed->analyzed_count)->toBe(0)
+        ->and(Article::where('analysis_status', 'pending')->count())->toBe(2);
+
+    Cache::flush();
+    $quotaExceeded = false;
+    $next = runGeminiCollection();
+
+    expect($next->status)->toBe(CollectionStatus::Completed)->and($next->analyzed_count)->toBe(2)->and($next->deferred_count)->toBe(0);
+});
+
+test('excluded keywords and outdated articles are rejected without calling gemini', function () {
+    $old = now()->subDays(20)->toRfc7231String();
+    $this->mock(FeedFetcher::class)->shouldReceive('fetch')->once()->andReturn('<?xml version="1.0"?><rss version="2.0"><channel><title>Tech</title><link>https://example.com</link><description>Flux</description>'
+        .'<item><title>Bon plan : SSD à prix cassé</title><link>https://example.com/ssd</link><guid>ssd</guid><description>Offre limitée.</description></item>'
+        .'<item><title>PHP 8 released</title><link>https://example.com/php8</link><guid>php8</guid><description>Old news.</description><pubDate>'.$old.'</pubDate></item>'
+        .'</channel></rss>');
+    fakeGeminiByTitle();
+
+    $run = runGeminiCollection();
+
+    Http::assertNothingSent();
+    expect($run->status)->toBe(CollectionStatus::Completed)
+        ->and(Article::withVerdict(RelevanceVerdict::Irrelevant)->count())->toBe(2)
+        ->and(Article::where('url', 'like', '%ssd')->first()->analysis->explanation)->toContain('bon plan')
+        ->and(Article::where('url', 'like', '%php8')->first()->analysis->explanation)->toContain('7 jours');
+});
+
+test('only articles above the selection threshold and not already covered are kept', function () {
+    $this->mock(FeedFetcher::class)->shouldReceive('fetch')->once()->andReturn(geminiFeed());
+    $reply = fn (array $overrides) => geminiReply([
+        'title_fr' => 't', 'summary' => 's', 'reason' => 'Pertinent.', 'relevant' => true, 'already_covered' => false, 'score' => 88,
+        'categories' => [], 'criteria' => ['novelty' => 90, 'importance' => 80, 'impact' => 70, 'usefulness' => 95, 'originality' => 60], ...$overrides,
+    ]);
+    Http::fake(['generativelanguage.googleapis.com/*' => fn (Request $request) => Http::response(
+        str_contains($request['contents'][0]['parts'][0]['text'], 'Titre : PHP 9')
+            ? $reply(['already_covered' => true])
+            : $reply(['score' => 45, 'criteria' => ['novelty' => 40, 'importance' => 40, 'impact' => 40, 'usefulness' => 40, 'originality' => 40]]),
+    )]);
+
+    $run = runGeminiCollection();
+
+    expect($run->interesting_count)->toBe(0);
+    $php = Article::where('title', 'like', 'PHP 9%')->first();
+    $promo = Article::where('title', 'like', 'Black Friday%')->first();
+    expect($php->analysis->verdict)->toBe(RelevanceVerdict::Irrelevant)->and($php->analysis->explanation)->toContain('déjà couvert')
+        ->and($promo->analysis->verdict)->toBe(RelevanceVerdict::Irrelevant)->and($promo->analysis->explanation)->toContain('inférieur au seuil');
+});
+
+test('gemini sees the articles already selected to avoid keeping one story twice', function () {
+    $this->mock(FeedFetcher::class)->shouldReceive('fetch')->once()->andReturn(geminiFeed());
+    fakeGeminiByTitle();
+
+    runGeminiCollection();
+
+    // PHP 9 (most recent first in order of analysis: same date, so feed order) is selected before the promo is judged.
+    Http::assertSent(fn (Request $request) => str_contains($request['contents'][0]['parts'][0]['text'], 'Titre : Black Friday')
+        && str_contains($request['contents'][0]['parts'][0]['text'], '- PHP 9 publié avec un nouveau JIT'));
 });

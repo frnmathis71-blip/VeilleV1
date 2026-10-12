@@ -19,7 +19,7 @@ use Illuminate\Support\Carbon;
  */
 class CollectionRun extends Model
 {
-    protected $fillable = ['status', 'trigger', 'requested_by', 'started_at', 'finished_at', 'heartbeat_at', 'configuration_snapshot', 'sources_count', 'discovered_count', 'created_count', 'duplicate_count', 'analyzed_count', 'interesting_count', 'error_count', 'duration_ms', 'error'];
+    protected $fillable = ['status', 'trigger', 'requested_by', 'started_at', 'finished_at', 'heartbeat_at', 'configuration_snapshot', 'sources_count', 'discovered_count', 'created_count', 'duplicate_count', 'analyzed_count', 'interesting_count', 'deferred_count', 'error_count', 'duration_ms', 'error'];
 
     /** @return array<string, string> */
     protected function casts(): array

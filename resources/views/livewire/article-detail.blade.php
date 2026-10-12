@@ -13,7 +13,7 @@
         @if($article->analysis)
             <section><h2 class="text-lg font-semibold">{{ $byAi ? 'Pourquoi ce verdict ?' : 'Pourquoi ce score ?' }}</h2><p class="mt-2 text-sm text-zinc-500">{{ $article->analysis->explanation }}</p>
                 <dl class="mt-3 grid gap-2 sm:grid-cols-2">
-                    @foreach($article->analysis->criteria_scores as $key => $value)<div class="flex justify-between rounded bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800"><dt>{{ ['novelty'=>'Nouveauté','importance'=>'Importance','impact'=>'Impact estimé','usefulness'=>'Utilité','originality'=>'Originalité (neutre)','reliability'=>'Fiabilité','freshness'=>'Actualité'][$key] ?? $key }}</dt><dd>{{ $value }}/100</dd></div>@endforeach
+                    @foreach($article->analysis->criteria_scores as $key => $value)<div class="flex justify-between rounded bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800"><dt>{{ ['novelty'=>'Nouveauté','importance'=>'Importance','impact'=>'Impact estimé','usefulness'=>'Utilité','originality'=>'Originalité','reliability'=>'Fiabilité','freshness'=>'Actualité'][$key] ?? $key }}</dt><dd>{{ $value }}/100</dd></div>@endforeach
                 </dl><p class="mt-3 text-xs text-zinc-500">{{ $byAi ? 'Analyse IA' : 'Analyse locale' }} · {{ $article->analysis->rules_version }} · {{ $article->analysis->analyzed_at->timezone('Europe/Paris')->format('d/m/Y H:i') }}</p>
             </section>
         @endif
