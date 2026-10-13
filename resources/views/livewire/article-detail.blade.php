@@ -1,5 +1,5 @@
 <div class="mx-auto max-w-5xl space-y-6">
-    <flux:button :href="route('articles.all')" wire:navigate>Retour aux articles</flux:button>
+    <flux:button :href="$backUrl" wire:navigate icon="arrow-left">Retour</flux:button>
     @if($message)<p class="notice" role="status">{{ $message }}</p>@endif
     <article class="panel space-y-5">
         @php($when = fn ($date) => $date->timezone('Europe/Paris')->format('d/m/Y à H:i'))

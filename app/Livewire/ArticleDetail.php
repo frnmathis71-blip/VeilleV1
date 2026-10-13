@@ -15,6 +15,10 @@ class ArticleDetail extends Component
     #[Locked]
     public int $articleId;
 
+    /** Page the user came from (list with its filters), so « Retour » goes back there. */
+    #[Locked]
+    public string $backUrl = '';
+
     public string $note = '';
 
     public string $message = '';
@@ -22,6 +26,10 @@ class ArticleDetail extends Component
     public function mount(Article $article): void
     {
         $this->articleId = $article->id;
+        $previous = url()->previous();
+        // Only a page of this site, and never the article itself (reload, or a form posted on it).
+        $sameSite = str_starts_with($previous, rtrim(url('/'), '/').'/');
+        $this->backUrl = $sameSite && strtok($previous, '?') !== route('articles.show', $article) ? $previous : route('articles.all');
         $this->note = $this->review()->personal_note ?? '';
     }
 

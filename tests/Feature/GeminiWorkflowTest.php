@@ -353,3 +353,16 @@ test('the day tab lists today relevant articles and sorted articles leave the li
     $this->get(route('articles.later'))->assertSee('PHP 9 publié')->assertDontSee('Ancienne sortie de Rust');
     $this->get(route('articles.library'))->assertSee('Ancienne sortie de Rust');
 });
+
+test('the back button returns to the list the article was opened from', function () {
+    $this->mock(FeedFetcher::class)->shouldReceive('fetch')->once()->andReturn(geminiFeed());
+    fakeGeminiByTitle();
+    runGeminiCollection();
+    $php = Article::where('title', 'like', 'PHP 9%')->first();
+    $this->actingAs(User::factory()->create());
+
+    $from = route('articles.today', ['sort' => 'score', 'search' => 'php']);
+    $this->get(route('articles.show', $php), ['referer' => $from])->assertSee('href="'.e($from).'"', false);
+    // Opened from elsewhere (external link, bookmark): back to all articles.
+    $this->get(route('articles.show', $php), ['referer' => 'https://evil.example/'])->assertSee('href="'.route('articles.all').'"', false);
+});
