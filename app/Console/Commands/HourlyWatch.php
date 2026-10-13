@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Article;
 use App\Models\CollectionRun;
+use App\Models\Setting;
 use App\Services\Collection\Collector;
 use App\Services\WatchSettings;
 use Illuminate\Console\Command;
@@ -21,8 +22,12 @@ class HourlyWatch extends Command
 
     protected $description = 'Tâche horaire : collecte quotidienne, analyse, images et purge en un seul passage';
 
+    /** Setting holding the time of the last invocation, shown in the history to prove the host cron runs. */
+    public const HEARTBEAT_KEY = 'cron_heartbeat';
+
     public function handle(Collector $collector, WatchSettings $settings): int
     {
+        Setting::updateOrCreate(['key' => self::HEARTBEAT_KEY], ['value' => ['at' => now()->toIso8601String()]]);
         // Two overlapping invocations would only wait for each other's locks: keep a single one.
         $lock = Cache::lock('watch-hourly', 3600);
         if (! $lock->get()) {

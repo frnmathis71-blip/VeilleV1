@@ -100,3 +100,19 @@ test('the collection hour is chosen in the watch settings', function () {
     expect((int) app(WatchSettings::class)->all()['collect_hour'])->toBe(22);
     $this->get(route('watch.settings'))->assertSee('Heure de la collecte automatique');
 });
+
+test('the history shows when the host cron last ran', function () {
+    $admin = User::factory()->create();
+    $admin->forceFill(['is_admin' => true])->save();
+    $this->actingAs($admin);
+    $this->mock(FeedFetcher::class)->shouldReceive('fetch')->andReturn(hourlyFeed(0));
+
+    $this->get(route('history'))->assertSee('n’a encore jamais été exécutée', false);
+
+    $this->travelTo(CarbonImmutable::parse('2026-10-13 06:05', 'Europe/Paris'));
+    $this->artisan('veille:cron', ['--minutes' => 1])->assertSuccessful();
+
+    $this->get(route('history'))->assertSee('Dernier passage de la tâche planifiée (cron) : 13/10/2026 à 06:05');
+    $this->travel(3)->hours();
+    $this->get(route('history'))->assertSee('plus de 2 heures');
+});
