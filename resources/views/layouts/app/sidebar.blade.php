@@ -13,8 +13,10 @@
             <flux:sidebar.nav>
                 <flux:sidebar.group :heading="__('Veille technologique')" class="grid">
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Tableau de bord</flux:sidebar.item>
+                    <flux:sidebar.item icon="sun" :href="route('articles.today')" :current="request()->routeIs('articles.today')" wire:navigate>Pertinents du jour</flux:sidebar.item>
                     <flux:sidebar.item icon="check-badge" :href="route('articles.interesting')" :current="request()->routeIs('articles.interesting')" wire:navigate>Articles pertinents</flux:sidebar.item>
                     <flux:sidebar.item icon="archive-box-x-mark" :href="route('articles.irrelevant')" :current="request()->routeIs('articles.irrelevant')" wire:navigate>Articles impertinents</flux:sidebar.item>
+                    <flux:sidebar.item icon="clock" :href="route('articles.later')" :current="request()->routeIs('articles.later')" wire:navigate>À lire plus tard</flux:sidebar.item>
                     <flux:sidebar.item icon="bookmark" :href="route('articles.library')" :current="request()->routeIs('articles.library')" wire:navigate>Ma bibliothèque</flux:sidebar.item>
                     <flux:sidebar.item icon="newspaper" :href="route('articles.all')" :current="request()->routeIs('articles.all')" wire:navigate>Tous les articles</flux:sidebar.item>
                     @can('manage-watch')<flux:sidebar.item icon="rss" :href="route('sources')" :current="request()->routeIs('sources')" wire:navigate>Sources RSS</flux:sidebar.item>@endcan

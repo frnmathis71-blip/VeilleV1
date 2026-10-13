@@ -331,3 +331,25 @@ test('the processing date and the dates of personal status changes are shown', f
     // The library lists the latest additions first, with their date.
     $this->get(route('articles.library'))->assertSeeInOrder(['PHP 9 publié', 'Ajouté à la bibliothèque le 14/10/2026', 'Black Friday', 'Ajouté à la bibliothèque le 13/10/2026']);
 });
+
+test('the day tab lists today relevant articles and sorted articles leave the lists to sort', function () {
+    $this->mock(FeedFetcher::class)->shouldReceive('fetch')->once()->andReturn(geminiFeed());
+    fakeGeminiByTitle();
+    runGeminiCollection();
+    $php = Article::where('title', 'like', 'PHP 9%')->first();
+    $source = RssSource::first();
+    $old = Article::create(['rss_source_id' => $source->id, 'title' => 'Ancienne sortie de Rust', 'url' => 'https://example.com/rust', 'canonical_url_hash' => hash('sha256', 'rust'), 'collected_at' => now()->subDays(2), 'analysis_status' => AnalysisStatus::Completed]);
+    $old->analysis()->create(['score' => 90, 'verdict' => 'relevant', 'summary' => 's', 'explanation' => 'e', 'criteria_scores' => [], 'method' => 'gemini', 'rules_version' => 'v', 'configuration_hash' => 'h', 'analyzed_at' => now()->subDays(2)]);
+
+    $this->actingAs(User::factory()->create());
+    $this->get(route('articles.today'))->assertOk()->assertSee('Pertinents du jour')->assertSee('PHP 9 publié')->assertDontSee('Ancienne sortie de Rust')->assertDontSee('Black Friday');
+    $this->get(route('articles.interesting'))->assertSee('PHP 9 publié')->assertSee('Ancienne sortie de Rust');
+
+    Livewire::test(ArticleDetail::class, ['article' => $php])->call('toggleLater');
+    Livewire::test(ArticleDetail::class, ['article' => $old])->call('decide', 'relevant');
+
+    $this->get(route('articles.today'))->assertDontSee('PHP 9 publié');
+    $this->get(route('articles.interesting'))->assertDontSee('PHP 9 publié')->assertDontSee('Ancienne sortie de Rust');
+    $this->get(route('articles.later'))->assertSee('PHP 9 publié')->assertDontSee('Ancienne sortie de Rust');
+    $this->get(route('articles.library'))->assertSee('Ancienne sortie de Rust');
+});

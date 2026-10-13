@@ -15,7 +15,9 @@ Route::get('/', fn () => redirect()->route(auth()->check() ? 'dashboard' : 'logi
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('articles', Articles::class)->name('articles.all');
+    Route::get('articles/du-jour', Articles::class)->name('articles.today');
     Route::get('articles/interessants', Articles::class)->name('articles.interesting');
+    Route::get('articles/a-lire', Articles::class)->name('articles.later');
     Route::get('articles/impertinents', Articles::class)->name('articles.irrelevant');
     Route::get('bibliotheque', Articles::class)->name('articles.library');
     Route::get('bibliotheque/export.pdf', LibraryExportController::class)->middleware('throttle:5,1')->name('articles.export');

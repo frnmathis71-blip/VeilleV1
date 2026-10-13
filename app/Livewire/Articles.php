@@ -8,6 +8,7 @@ use App\Models\ArticleAnalysis;
 use App\Models\ArticleReview;
 use App\Models\Category;
 use App\Models\RssSource;
+use App\Services\WatchSettings;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Locked;
@@ -52,17 +53,25 @@ class Articles extends Component
     public function mount(): void
     {
         $this->mode = match (request()->route()?->getName()) {
+            'articles.today' => 'today',
             'articles.interesting' => 'interesting',
             'articles.irrelevant' => 'irrelevant',
+            'articles.later' => 'later',
             'articles.library' => 'library',
             default => 'all',
         };
-        if ($this->mode === 'interesting' && ! request()->has('decision')) {
-            $this->decision = 'pending';
-        }
         if ($this->mode === 'library' && ! request()->has('sort')) {
             $this->sort = 'decided'; // Latest additions to the library first.
         }
+        if ($this->mode === 'today' && ! request()->has('sort')) {
+            $this->sort = 'score'; // The best of the day first.
+        }
+    }
+
+    /** Lists of articles still to sort: whatever the user has decided on or set aside leaves them. */
+    public function hidesHandled(): bool
+    {
+        return in_array($this->mode, ['today', 'interesting'], true);
     }
 
     public function updated(string $property): void
@@ -75,8 +84,19 @@ class Articles extends Component
     {
         $userId = auth()->id();
         $query = Article::with(['source', 'analysis', 'categories', 'reviews' => fn ($q) => $q->where('user_id', $userId)]);
-        if ($this->mode === 'interesting') {
+        if ($this->mode === 'interesting' || $this->mode === 'today') {
             $query->withVerdict(RelevanceVerdict::Relevant);
+        }
+        if ($this->mode === 'today') {
+            $startOfDay = now(WatchSettings::TIMEZONE)->startOfDay()->utc();
+            $query->whereHas('analysis', fn ($q) => $q->where('analyzed_at', '>=', $startOfDay));
+        }
+        if ($this->hidesHandled()) {
+            $query->whereDoesntHave('reviews', fn ($q) => $q->where('user_id', $userId)
+                ->where(fn ($r) => $r->whereNotNull('decision')->orWhereNotNull('saved_for_later_at')));
+        }
+        if ($this->mode === 'later') {
+            $query->whereHas('reviews', fn ($q) => $q->where('user_id', $userId)->whereNotNull('saved_for_later_at'));
         }
         if ($this->mode === 'irrelevant') {
             $query->withVerdict(RelevanceVerdict::Irrelevant);
@@ -130,7 +150,8 @@ class Articles extends Component
     public function render(): View
     {
         $title = match ($this->mode) {
-            'interesting' => 'Articles pertinents', 'irrelevant' => 'Articles impertinents', 'library' => 'Ma bibliothèque', default => 'Tous les articles'
+            'today' => 'Pertinents du jour', 'interesting' => 'Articles pertinents', 'irrelevant' => 'Articles impertinents',
+            'later' => 'À lire plus tard', 'library' => 'Ma bibliothèque', default => 'Tous les articles'
         };
 
         return view('livewire.articles', [
